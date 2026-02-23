@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Noman Pro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+</head>
+
+<body style="background:#0f0f0f;color:white;text-align:center;font-family:Arial">
+
+<h2>Noman Pro</h2>
+
+<div>
+  <input id="email" placeholder="Email"><br><br>
+  <input id="password" type="password" placeholder="Password"><br><br>
+  <button onclick="register()">Register</button>
+  <button onclick="login()">Login</button>
+</div>
+
+<hr>
+
+<h3>Balance: <span id="balance">0</span> Coin</h3>
+<h4>Total Ads: <span id="ads">0</span></h4>
+
+<button onclick="watchAd()">Watch Ad Now</button>
+
+<hr>
+
+<h3>Withdraw</h3>
+<select id="method">
+  <option value="Bkash">Bkash</option>
+  <option value="Nagad">Nagad</option>
+</select><br><br>
+
+<input id="number" placeholder="Number"><br><br>
+<button onclick="withdraw()">Withdraw</button>
+
+<script type="module">
+
+// 🔥 PASTE YOUR FIREBASE CONFIG HERE
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_BUCKET",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } 
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc } 
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let currentUser;
+
+// Register
+window.register = async function(){
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const userCred = await createUserWithEmailAndPassword(auth,email,password);
+  currentUser = userCred.user;
+
+  await setDoc(doc(db,"users",currentUser.uid),{
+    balance:0,
+    totalAds:0
+  });
+
+  alert("Registered Successfully");
+};
+
+// Login
+window.login = async function(){
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const userCred = await signInWithEmailAndPassword(auth,email,password);
+  currentUser = userCred.user;
+
+  loadData();
+};
+
+// Load Balance
+async function loadData(){
+  const docRef = doc(db,"users",currentUser.uid);
+  const snap = await getDoc(docRef);
+
+  if(snap.exists()){
+    document.getElementById("balance").innerText = snap.data().balance;
+    document.getElementById("ads").innerText = snap.data().totalAds;
+  }
+}
+
+// Watch Ad (Secure DB Update)
+window.watchAd = async function(){
+
+  if(!currentUser){
+    alert("Login First");
+    return;
+  }
+
+  const docRef = doc(db,"users",currentUser.uid);
+  const snap = await getDoc(docRef);
+
+  let balance = snap.data().balance + 16;
+  let totalAds = snap.data().totalAds + 1;
+
+  await updateDoc(docRef,{
+    balance:balance,
+    totalAds:totalAds
+  });
+
+  document.getElementById("balance").innerText = balance;
+  document.getElementById("ads").innerText = totalAds;
+
+  alert("16 Coin Added");
+};
+
+// Withdraw System
+window.withdraw = async function(){
+
+  if(!currentUser){
+    alert("Login First");
+    return;
+  }
+
+  const method = document.getElementById("method").value;
+  const number = document.getElementById("number").value;
+
+  const docRef = doc(db,"users",currentUser.uid);
+  const snap = await getDoc(docRef);
+
+  let balance = snap.data().balance;
+
+  if(balance < 50000){
+    alert("Minimum 50000 Coin Required");
+    return;
+  }
+
+  await addDoc(collection(db,"withdrawRequests"),{
+    userId: currentUser.uid,
+    amount: balance,
+    method: method,
+    number: number,
+    status: "pending",
+    createdAt: new Date()
+  });
+
+  alert("Withdraw Request Submitted");
+};
+
+</script>
+
+</body>
+</html>
